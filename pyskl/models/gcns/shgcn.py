@@ -7,18 +7,15 @@ from mmcv.runner import load_checkpoint
 from ...utils import Graph_aug as Graph
 from ...utils import cache_checkpoint
 from ..builder import BACKBONES
-# 注意：utils中的模块定义来自原始代码，这里仅作引用
+
 from .utils import dggcn, dgmstcn, unit_tcn, mstcn, dghgcn, dgphgcn, dgphgcn1, dgmsmlp
 
 EPS = 1e-4
 
 
-# --- 新增：定义交叉注意力融合模块 ---
+# --- 交叉注意力融合模块 ---
 class CrossAttentionFusion(nn.Module):
-    """
-    使用多头交叉注意力机制来融合虚拟节点和羽毛球特征的模块。
-    虚拟节点特征作为Query，羽毛球时序特征作为Key和Value。
-    """
+
     def __init__(self, d_model_skel, d_model_ball, nhead=4, dropout=0.1):
         super().__init__()
         self.nhead = nhead
@@ -69,13 +66,10 @@ class CrossAttentionFusion(nn.Module):
         fused_feat = self.norm(fused_feat.permute(0, 1, 3, 2)).permute(0, 1, 3, 2)
 
         # ==========================================
-        # 5. 【关键修改】使用 torch.cat 拼接，避免 In-place 报错
+        # 5. 使用 torch.cat 拼接，避免 In-place 报错
         # ==========================================
         
         # 我们需要把原来的特征拆开，去掉旧的虚拟节点，拼上新的融合后的节点
-        
-        # 假设 virtual_node_idx 是最后一个节点 (通常 V_plus_1 - 1)
-        # 如果不是最后一个，逻辑会复杂一点，但在你的代码里它是 V，也就是最后一个
         
         # 取出除虚拟节点以外的所有骨骼特征
         # shape: [N, M, C_skel, T, V]
@@ -86,7 +80,7 @@ class CrossAttentionFusion(nn.Module):
         fused_feat_expanded = fused_feat.unsqueeze(-1)
         
         # 拼接： [骨骼特征, 新虚拟节点特征]
-        # 在最后一个维度 (dim=4) 上拼接
+
         out = torch.cat([skeleton_parts, fused_feat_expanded], dim=4)
 
         # 6. 恢复原始形状 [NM, C, T, V+1]
@@ -216,7 +210,7 @@ class SHGCN(nn.Module):
 
         self.fusion_stages = fusion_stages
 
-        # --- 【修改】多模态融合相关组件 ---
+
         # 1. 创建处理羽毛球轨迹的TCN (保留)
         self.ball_tcn = BallTrajectoryTCN(
             in_channels=8,
@@ -271,7 +265,7 @@ class SHGCN(nn.Module):
         #     d_model_ball=128, # TCN第5层输出通道
         #     nhead=8 # 更深层特征可以用更多头
         # )
-        # --- 修改部分结束 ---
+        
 
         self.graph = Graph(**graph_cfg)
         A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False)
